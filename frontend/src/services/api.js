@@ -29,14 +29,35 @@ const getUserSettings = async () => {
             throw new Error('User not authenticated');
         }
 
-        const { data, error } = await supabase
+        // Create a promise that rejects after 5 seconds
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Supabase request timed out')), 5000)
+        );
+
+        // Race the Supabase query against the timeout
+        const queryPromise = supabase
             .from('settings')
             .select('active_provider, provider_config')
             .eq('user_id', user.id)
             .single();
 
-        if (error && error.code !== 'PGRST116') {
-            console.error('Error fetching user settings:', error);
+        const { data, error } = await Promise.race([queryPromise, timeoutPromise])
+            .catch(err => {
+                console.warn('Supabase query failed or timed out:', err);
+                return { data: null, error: err };
+            });
+
+        // Handle missing table (PGRST205) or other errors
+        if (error) {
+            if (error.code === 'PGRST116') {
+                // No settings found for user - use defaults
+                console.log('No settings found for user, using defaults');
+            } else if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
+                // Table doesn't exist - use defaults
+                console.warn('Settings table not found, using defaults');
+            } else {
+                console.error('Error fetching user settings:', error);
+            }
             return { userId: user.id, provider: 'openai', providerConfig: null };
         }
 
@@ -47,7 +68,8 @@ const getUserSettings = async () => {
         };
     } catch (error) {
         console.error('Error getting user settings:', error);
-        throw error;
+        // Fallback to defaults on any error to prevent blocking
+        return { userId: 'unknown', provider: 'openai', providerConfig: null };
     }
 };
 
