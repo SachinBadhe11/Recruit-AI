@@ -66,7 +66,7 @@ const CandidateCard = ({ result }) => {
                     <div>
                         <h4 className="font-display font-semibold text-surface-900 mb-4">Detailed Breakdown</h4>
                         <div className="space-y-3">
-                            {result.details.map((item, index) => (
+                            {(result.details || []).map((item, index) => (
                                 <motion.div
                                     key={index}
                                     initial={{ opacity: 0, x: -10 }}
@@ -101,16 +101,16 @@ const CandidateCard = ({ result }) => {
                     <div>
                         <h4 className="font-display font-semibold text-surface-900 mb-6">Recommendation</h4>
                         <div className={`
-              inline-flex items-center gap-3 px-5 py-3 rounded-2xl font-bold text-sm mb-6 w-full justify-center shadow-sm border
-              ${result.recommendation === 'Interview'
+                            px-5 py-3 rounded-2xl font-bold text-sm mb-6 w-full justify-center shadow-sm border
+              ${(result.recommendation || '').toLowerCase() === 'interview'
                                 ? 'bg-green-50 text-green-700 border-green-100'
                                 : 'bg-red-50 text-red-700 border-red-100'}
             `}>
-                            {result.recommendation === 'Interview' ? <Check size={18} /> : <X size={18} />}
-                            {result.recommendation.toUpperCase()}
+                            {(result.recommendation || '').toLowerCase() === 'interview' ? <Check size={18} /> : <X size={18} />}
+                            {(result.recommendation || 'Review').toUpperCase()}
                         </div>
                         <p className="text-sm text-surface-500 mb-8 leading-relaxed">
-                            {result.recommendation === 'Interview'
+                            {(result.recommendation || '').toLowerCase() === 'interview'
                                 ? "Strong candidate. Matches key requirements. Recommended to proceed to phone screen."
                                 : "Does not meet core requirements. Recommended to send rejection email."}
                         </p>

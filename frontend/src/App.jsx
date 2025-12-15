@@ -103,6 +103,7 @@ function App() {
 
     try {
       const data = await analyzeCandidate(jdText, resumeText);
+      console.log('Analysis Result:', data);
       setResult(data);
       return data;
     } catch (err) {
