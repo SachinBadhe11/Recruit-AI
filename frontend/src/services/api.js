@@ -95,7 +95,19 @@ const getUserSettings = async () => {
  */
 const getAuthToken = async () => {
     try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Timeout for session check
+        const sessionTimeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Session check timed out')), 2000)
+        );
+
+        const sessionPromise = supabase.auth.getSession();
+
+        const { data: { session } } = await Promise.race([sessionPromise, sessionTimeoutPromise])
+            .catch(err => {
+                console.warn('Session check failed or timed out:', err);
+                return { data: { session: null } };
+            });
+
         return session?.access_token || null;
     } catch (error) {
         console.error('Error getting auth token:', error);
