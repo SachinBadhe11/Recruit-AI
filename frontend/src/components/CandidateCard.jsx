@@ -3,7 +3,10 @@ import { Check, X, Calendar, Sparkles, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const CandidateCard = ({ result }) => {
-    if (!result) return null;
+    // Only render if we have actual analysis data
+    if (!result || typeof result.score === 'undefined' || !result.summary) {
+        return null;
+    }
 
     const scoreColor = result.score >= 80 ? 'text-green-600' : result.score >= 60 ? 'text-yellow-600' : 'text-red-600';
     const ringColor = result.score >= 80 ? 'stroke-green-500' : result.score >= 60 ? 'stroke-yellow-500' : 'stroke-red-500';

@@ -110,15 +110,26 @@ export const analyzeCandidate = async (jdText, resumeText) => {
         }
 
         let result = await response.json();
+        console.log('Raw n8n response:', result);
 
         // Handle n8n array response
         if (Array.isArray(result)) {
+            console.log('Unwrapping array response');
             result = result[0];
         }
 
         // Handle n8n standard "json" wrapper
         if (result && result.json) {
+            console.log('Unwrapping json property');
             result = result.json;
+        }
+
+        console.log('Final unwrapped result:', result);
+
+        // Validate that we have essential data
+        if (!result || typeof result.score === 'undefined' || !result.summary) {
+            console.error('Invalid analysis result:', result);
+            throw new Error('Analysis completed but returned incomplete data. Please try again.');
         }
 
         // Save screening result to Supabase
