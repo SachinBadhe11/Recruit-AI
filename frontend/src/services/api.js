@@ -83,9 +83,16 @@ export const analyzeCandidate = async (jdText, resumeText) => {
     }
 
     try {
+        console.log('1. analyzeCandidate started');
+
         // Get user settings and auth token
+        console.log('2. Calling getUserSettings...');
         const { userId, provider } = await getUserSettings();
+        console.log('3. getUserSettings done. Provider:', provider);
+
+        console.log('4. Calling getAuthToken...');
         const authToken = await getAuthToken();
+        console.log('5. getAuthToken done. Token exists:', !!authToken);
 
         // Make request to n8n webhook
         console.log('🚀 Sending request to n8n:', N8N_WEBHOOK_URL);
