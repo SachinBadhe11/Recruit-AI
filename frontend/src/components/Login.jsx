@@ -26,9 +26,9 @@ const Login = ({ onLogin }) => {
         try {
             const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
-                options: {
-                    redirectTo: window.location.origin
-                }
+                const { data, error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google'
+                });
             });
 
             if (error) throw error;
