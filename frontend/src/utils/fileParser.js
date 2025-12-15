@@ -54,18 +54,28 @@ const readTextFile = (file) => {
  * Reads a PDF file using pdfjs-dist
  */
 const readPdfFile = async (file) => {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let fullText = '';
+    console.log('📄 Starting PDF parsing for:', file.name);
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        console.log(`PDF loaded. Pages: ${pdf.numPages}`);
 
-    for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map((item) => item.str).join(' ');
-        fullText += pageText + '\n';
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items.map((item) => item.str).join(' ');
+            fullText += pageText + '\n';
+        }
+
+        console.log(`PDF parsed. Length: ${fullText.length} chars`);
+        if (fullText.length < 50) console.warn('⚠️ Warning: Extracted PDF text is very short!');
+
+        return fullText;
+    } catch (error) {
+        console.error('❌ PDF Parsing Error:', error);
+        throw new Error('Failed to parse PDF file. Please ensure it is a valid PDF.');
     }
-
-    return fullText;
 };
 
 /**
