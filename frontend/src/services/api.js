@@ -109,7 +109,12 @@ export const analyzeCandidate = async (jdText, resumeText) => {
             throw new Error(errorData.error || `HTTP ${response.status}: Failed to analyze candidate`);
         }
 
-        const result = await response.json();
+        let result = await response.json();
+
+        // Handle n8n array response
+        if (Array.isArray(result)) {
+            result = result[0];
+        }
 
         // Save screening result to Supabase
         await saveScreening(result, jdText, resumeText);
