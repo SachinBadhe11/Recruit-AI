@@ -173,8 +173,23 @@ export const analyzeCandidate = async (jdText, resumeText) => {
             throw new Error(errorData.error || `HTTP ${response.status}: Failed to analyze candidate`);
         }
 
-        let result = await response.json();
-        console.log('=== RAW N8N RESPONSE ===');
+        const responseText = await response.text();
+        console.log('=== RAW N8N RESPONSE TEXT ===');
+        console.log(responseText);
+
+        if (!responseText) {
+            throw new Error('Received empty response from n8n');
+        }
+
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (e) {
+            console.error('Failed to parse response JSON:', e);
+            throw new Error('Invalid JSON response from n8n');
+        }
+
+        console.log('=== RAW N8N RESPONSE OBJECT ===');
         console.log('Type:', typeof result);
         console.log('Is Array:', Array.isArray(result));
         console.log('Full Response:', JSON.stringify(result, null, 2));
