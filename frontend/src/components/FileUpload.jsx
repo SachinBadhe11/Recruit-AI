@@ -36,8 +36,16 @@ const FileUpload = ({ onAnalyze, isAnalyzing }) => {
                 resumeContent = resumeText;
             }
 
+            console.log('JD Mode:', jdInputMode, 'Resume Mode:', resumeInputMode);
+            console.log('JD Content Length:', jdContent?.length);
+            console.log('Resume Content Length:', resumeContent?.length);
+
             if (jdContent && resumeContent) {
+                console.log('Calling onAnalyze...');
                 await onAnalyze(jdContent, resumeContent);
+            } else {
+                console.warn('Missing content - JD:', !!jdContent, 'Resume:', !!resumeContent);
+                alert('Please provide both Job Description and Resume content.');
             }
         } catch (error) {
             console.error("Error reading files:", error);
