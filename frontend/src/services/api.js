@@ -88,6 +88,9 @@ export const analyzeCandidate = async (jdText, resumeText) => {
         const authToken = await getAuthToken();
 
         // Make request to n8n webhook
+        console.log('🚀 Sending request to n8n:', N8N_WEBHOOK_URL);
+        console.log('Request body:', { action: 'analyze', jd: jdText.substring(0, 50) + '...', resume: resumeText.substring(0, 50) + '...' });
+
         const response = await fetch(N8N_WEBHOOK_URL, {
             method: "POST",
             headers: {
@@ -104,8 +107,11 @@ export const analyzeCandidate = async (jdText, resumeText) => {
             }),
         });
 
+        console.log('📡 Response status:', response.status, response.statusText);
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
+            console.error('❌ HTTP Error:', response.status, errorData);
             throw new Error(errorData.error || `HTTP ${response.status}: Failed to analyze candidate`);
         }
 
@@ -142,7 +148,8 @@ export const analyzeCandidate = async (jdText, resumeText) => {
         if (!result || typeof result.score === 'undefined') {
             console.error('❌ VALIDATION FAILED - Missing score');
             console.error('Result object:', result);
-            throw new Error('Analysis completed but returned incomplete data. Please try again.');
+            console.error('Please check the n8n workflow execution logs');
+            throw new Error('Analysis completed but returned incomplete data. Check browser console for details.');
         }
 
         // If summary is missing but we have other data, provide a fallback
