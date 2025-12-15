@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Upload, FileText, Type, X, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { readFileContent } from '../utils/fileParser';
 
 const FileUpload = ({ onAnalyze, isAnalyzing }) => {
     const [jdInputMode, setJdInputMode] = useState('file'); // 'file' or 'text'
@@ -13,11 +14,34 @@ const FileUpload = ({ onAnalyze, isAnalyzing }) => {
     const [resumeText, setResumeText] = useState('');
 
     const handleAnalyze = async () => {
-        const jdContent = jdInputMode === 'file' ? jdFile?.name : jdText;
-        const resumeContent = resumeInputMode === 'file' ? resumeFile?.name : resumeText;
+        let jdContent = '';
+        let resumeContent = '';
 
-        if (jdContent && resumeContent) {
-            await onAnalyze(jdContent, resumeContent);
+        try {
+            // Get JD Content
+            if (jdInputMode === 'file') {
+                if (jdFile) {
+                    jdContent = await readFileContent(jdFile);
+                }
+            } else {
+                jdContent = jdText;
+            }
+
+            // Get Resume Content
+            if (resumeInputMode === 'file') {
+                if (resumeFile) {
+                    resumeContent = await readFileContent(resumeFile);
+                }
+            } else {
+                resumeContent = resumeText;
+            }
+
+            if (jdContent && resumeContent) {
+                await onAnalyze(jdContent, resumeContent);
+            }
+        } catch (error) {
+            console.error("Error reading files:", error);
+            alert(`Failed to read file content: ${error.message}`);
         }
     };
 
@@ -37,8 +61,8 @@ const FileUpload = ({ onAnalyze, isAnalyzing }) => {
                         <button
                             onClick={() => setJdInputMode('file')}
                             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${jdInputMode === 'file'
-                                    ? 'bg-white text-primary-600 shadow-sm'
-                                    : 'text-surface-600 hover:text-surface-900'
+                                ? 'bg-white text-primary-600 shadow-sm'
+                                : 'text-surface-600 hover:text-surface-900'
                                 }`}
                         >
                             <FileText size={16} className="inline mr-1" />
@@ -47,8 +71,8 @@ const FileUpload = ({ onAnalyze, isAnalyzing }) => {
                         <button
                             onClick={() => setJdInputMode('text')}
                             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${jdInputMode === 'text'
-                                    ? 'bg-white text-primary-600 shadow-sm'
-                                    : 'text-surface-600 hover:text-surface-900'
+                                ? 'bg-white text-primary-600 shadow-sm'
+                                : 'text-surface-600 hover:text-surface-900'
                                 }`}
                         >
                             <Type size={16} className="inline mr-1" />
@@ -83,8 +107,8 @@ const FileUpload = ({ onAnalyze, isAnalyzing }) => {
                         <button
                             onClick={() => setResumeInputMode('file')}
                             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${resumeInputMode === 'file'
-                                    ? 'bg-white text-primary-600 shadow-sm'
-                                    : 'text-surface-600 hover:text-surface-900'
+                                ? 'bg-white text-primary-600 shadow-sm'
+                                : 'text-surface-600 hover:text-surface-900'
                                 }`}
                         >
                             <FileText size={16} className="inline mr-1" />
@@ -93,8 +117,8 @@ const FileUpload = ({ onAnalyze, isAnalyzing }) => {
                         <button
                             onClick={() => setResumeInputMode('text')}
                             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${resumeInputMode === 'text'
-                                    ? 'bg-white text-primary-600 shadow-sm'
-                                    : 'text-surface-600 hover:text-surface-900'
+                                ? 'bg-white text-primary-600 shadow-sm'
+                                : 'text-surface-600 hover:text-surface-900'
                                 }`}
                         >
                             <Type size={16} className="inline mr-1" />

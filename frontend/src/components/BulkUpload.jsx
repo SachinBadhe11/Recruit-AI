@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Upload, FileText, X, CheckCircle2, AlertCircle, Loader2, Type } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { readFileContent } from '../utils/fileParser';
 
 const BulkUpload = ({ onAnalyze }) => {
     const jdInputRef = React.useRef(null);
@@ -22,15 +23,6 @@ const BulkUpload = ({ onAnalyze }) => {
         setResumeFiles(prev => prev.filter((_, i) => i !== index));
     };
 
-    const readFileAsText = (file) => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.onerror = reject;
-            reader.readAsText(file);
-        });
-    };
-
     const handleBulkAnalyze = async () => {
         // Get JD text
         let jdContent = '';
@@ -46,9 +38,9 @@ const BulkUpload = ({ onAnalyze }) => {
                 return;
             }
             try {
-                jdContent = await readFileAsText(jdFile);
+                jdContent = await readFileContent(jdFile);
             } catch (error) {
-                alert('Failed to read JD file');
+                alert(`Failed to read JD file: ${error.message}`);
                 return;
             }
         }
@@ -64,7 +56,7 @@ const BulkUpload = ({ onAnalyze }) => {
         for (let i = 0; i < resumeFiles.length; i++) {
             try {
                 // Read resume file
-                const resumeContent = await readFileAsText(resumeFiles[i]);
+                const resumeContent = await readFileContent(resumeFiles[i]);
 
                 // Analyze
                 const result = await onAnalyze(jdContent, resumeContent);
@@ -99,8 +91,8 @@ const BulkUpload = ({ onAnalyze }) => {
                         <button
                             onClick={() => setJdInputMode('text')}
                             className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${jdInputMode === 'text'
-                                    ? 'bg-white text-primary-600 shadow-sm'
-                                    : 'text-surface-600 hover:text-surface-900'
+                                ? 'bg-white text-primary-600 shadow-sm'
+                                : 'text-surface-600 hover:text-surface-900'
                                 }`}
                         >
                             <Type size={18} />
@@ -109,8 +101,8 @@ const BulkUpload = ({ onAnalyze }) => {
                         <button
                             onClick={() => setJdInputMode('file')}
                             className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${jdInputMode === 'file'
-                                    ? 'bg-white text-primary-600 shadow-sm'
-                                    : 'text-surface-600 hover:text-surface-900'
+                                ? 'bg-white text-primary-600 shadow-sm'
+                                : 'text-surface-600 hover:text-surface-900'
                                 }`}
                         >
                             <Upload size={18} />
@@ -264,8 +256,8 @@ const BulkUpload = ({ onAnalyze }) => {
                                             Score: {result.data.score}
                                         </span>
                                         <span className={`px-3 py-1 rounded-full text-xs font-bold ${result.data.recommendation === 'Interview'
-                                                ? 'bg-green-100 text-green-700'
-                                                : 'bg-red-100 text-red-700'
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-red-100 text-red-700'
                                             }`}>
                                             {result.data.recommendation}
                                         </span>
