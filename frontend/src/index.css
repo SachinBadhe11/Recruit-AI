@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-surface-50 text-surface-900 font-sans antialiased selection:bg-primary-100 selection:text-primary-900;
+    background:
+      radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(236, 72, 153, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 40% 20%, rgba(59, 130, 246, 0.06) 0%, transparent 50%),
+      radial-gradient(circle at 90% 10%, rgba(168, 85, 247, 0.05) 0%, transparent 50%),
+      linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    background-attachment: fixed;
+    animation: gradientShift 15s ease infinite;
+  }
+
+  @keyframes gradientShift {
+
+    0%,
+    100% {
+      background-position: 0% 50%;
+    }
+
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display tracking-tight;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/70 backdrop-blur-lg border border-white/20 shadow-glass;
+  }
+
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-md border border-surface-200/50 shadow-glass-sm hover:shadow-glass transition-all duration-300;
+  }
+}

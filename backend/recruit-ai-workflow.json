@@ -1,0 +1,312 @@
+{
+  "name": "Recruit-AI Agent (Multi-LLM)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "analyze",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "id": "webhook-node",
+      "webhookId": "recruit-ai-webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.body.jd}}",
+              "operation": "isNotEmpty"
+            },
+            {
+              "value1": "={{$json.body.resume}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "id": "validate-input"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": \"Missing required fields: jd and resume\" } }}"
+      },
+      "name": "Return Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        450,
+        500
+      ],
+      "id": "error-response"
+    },
+    {
+      "parameters": {
+        "jsCode": "// LLM Configuration - Edit these values to switch providers\nconst LLM_CONFIG = {\n  // Choose your provider: 'openai', 'perplexity', 'gemini', 'custom'\n  provider: 'openai',\n  \n  // API Configuration per provider\n  providers: {\n    openai: {\n      url: 'https://api.openai.com/v1/chat/completions',\n      model: 'gpt-4-turbo',\n      apiKeyHeader: 'Authorization',\n      apiKeyPrefix: 'Bearer ',\n      apiKey: 'YOUR_OPENAI_API_KEY', // Replace with your key\n    },\n    perplexity: {\n      url: 'https://api.perplexity.ai/chat/completions',\n      model: 'llama-3.1-sonar-large-128k-online',\n      apiKeyHeader: 'Authorization',\n      apiKeyPrefix: 'Bearer ',\n      apiKey: 'YOUR_PERPLEXITY_API_KEY', // Replace with your key\n    },\n    gemini: {\n      url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',\n      model: 'gemini-pro',\n      apiKeyHeader: 'x-goog-api-key',\n      apiKeyPrefix: '',\n      apiKey: 'YOUR_GEMINI_API_KEY', // Replace with your key\n    },\n    custom: {\n      url: 'YOUR_CUSTOM_LLM_ENDPOINT',\n      model: 'your-model-name',\n      apiKeyHeader: 'Authorization',\n      apiKeyPrefix: 'Bearer ',\n      apiKey: 'YOUR_CUSTOM_API_KEY',\n    }\n  }\n};\n\n// Get current provider config\nconst config = LLM_CONFIG.providers[LLM_CONFIG.provider];\n\n// Get input data\nconst jd = $input.first().json.body.jd;\nconst resume = $input.first().json.body.resume;\n\n// System prompt for analysis\nconst systemPrompt = `You are an expert Technical Recruiter with 10+ years of experience.\n\nAnalyze the following Resume against the Job Description. Be thorough, fair, and realistic in your assessment.\n\nProvide a comprehensive analysis and output ONLY a valid JSON object with this exact structure:\n{\n  \"score\": (integer between 0-100, be realistic and fair),\n  \"summary\": \"3-4 sentences explaining the overall fit, highlighting key strengths and any significant gaps\",\n  \"recommendation\": \"Interview\" or \"Reject\",\n  \"details\": [\n    { \"criteria\": \"Experience\", \"status\": \"match\" or \"partial\" or \"miss\", \"reason\": \"specific explanation with years/details\" },\n    { \"criteria\": \"Technical Skills\", \"status\": \"match\" or \"partial\" or \"miss\", \"reason\": \"specific technologies and proficiency\" },\n    { \"criteria\": \"Education\", \"status\": \"match\" or \"partial\" or \"miss\", \"reason\": \"degree and institution details\" },\n    { \"criteria\": \"Soft Skills\", \"status\": \"match\" or \"partial\" or \"miss\", \"reason\": \"communication, leadership, teamwork assessment\" }\n  ],\n  \"candidateName\": \"extracted full name from resume\",\n  \"candidateEmail\": \"extracted email from resume or 'Not provided'\"\n}\n\nScoring Guidelines:\n- 90-100: Exceptional fit, exceeds requirements\n- 75-89: Strong fit, meets most requirements\n- 60-74: Moderate fit, has potential but gaps exist\n- 40-59: Weak fit, significant gaps\n- 0-39: Poor fit, does not meet requirements\n\nRecommendation Guidelines:\n- \"Interview\": Score >= 65 OR strong potential despite lower score\n- \"Reject\": Score < 65 AND no exceptional qualities`;\n\nconst userPrompt = `JOB DESCRIPTION:\n${jd}\n\nRESUME:\n${resume}`;\n\n// Prepare request body based on provider\nlet requestBody;\nif (LLM_CONFIG.provider === 'gemini') {\n  // Gemini uses different format\n  requestBody = {\n    contents: [{\n      parts: [{\n        text: systemPrompt + '\\n\\n' + userPrompt\n      }]\n    }],\n    generationConfig: {\n      temperature: 0.7,\n      maxOutputTokens: 2048\n    }\n  };\n} else {\n  // OpenAI/Perplexity format\n  requestBody = {\n    model: config.model,\n    messages: [\n      { role: 'system', content: systemPrompt },\n      { role: 'user', content: userPrompt }\n    ],\n    temperature: 0.7,\n    max_tokens: 2048\n  };\n}\n\n// Return configuration for HTTP Request node\nreturn [{\n  json: {\n    llmConfig: config,\n    requestBody: requestBody,\n    jd: jd,\n    resume: resume\n  }\n}];"
+      },
+      "name": "Configure LLM Provider",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        650,
+        300
+      ],
+      "id": "configure-llm"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.llmConfig.url}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "={{$json.llmConfig.apiKeyHeader}}",
+              "value": "={{$json.llmConfig.apiKeyPrefix + $json.llmConfig.apiKey}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": []
+        },
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json.requestBody)}}",
+        "options": {}
+      },
+      "name": "Call LLM API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        850,
+        300
+      ],
+      "id": "http-llm-call"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse LLM response based on provider\nconst item = $input.first().json;\nlet responseText;\n\n// Detect provider from response structure\nif (item.choices && item.choices[0]) {\n  // OpenAI/Perplexity format\n  responseText = item.choices[0].message.content;\n} else if (item.candidates && item.candidates[0]) {\n  // Gemini format\n  responseText = item.candidates[0].content.parts[0].text;\n} else if (item.response) {\n  // Generic response field\n  responseText = item.response;\n} else if (typeof item === 'string') {\n  responseText = item;\n} else {\n  throw new Error('Unable to parse LLM response format');\n}\n\n// Extract JSON from response\nlet parsedData;\ntry {\n  // Try direct parse first\n  parsedData = JSON.parse(responseText);\n} catch (e) {\n  // Try to extract JSON from markdown code blocks\n  const jsonMatch = responseText.match(/```json\\s*([\\s\\S]*?)```/) || \n                    responseText.match(/```\\s*([\\s\\S]*?)```/) ||\n                    responseText.match(/\\{[\\s\\S]*\\}/);\n  \n  if (jsonMatch) {\n    const jsonStr = jsonMatch[1] || jsonMatch[0];\n    parsedData = JSON.parse(jsonStr);\n  } else {\n    throw new Error('Failed to extract JSON from LLM response');\n  }\n}\n\n// Validate required fields\nif (!parsedData.score || !parsedData.summary || !parsedData.recommendation) {\n  throw new Error('LLM response missing required fields (score, summary, recommendation)');\n}\n\n// Ensure score is a number between 0-100\nparsedData.score = Math.max(0, Math.min(100, parseInt(parsedData.score)));\n\n// Ensure recommendation is valid\nif (!['Interview', 'Reject'].includes(parsedData.recommendation)) {\n  parsedData.recommendation = parsedData.score >= 65 ? 'Interview' : 'Reject';\n}\n\nreturn [{ json: parsedData }];"
+      },
+      "name": "Parse LLM Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1050,
+        300
+      ],
+      "id": "parse-response"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.recommendation}}",
+              "operation": "equals",
+              "value2": "Interview"
+            }
+          ]
+        }
+      },
+      "name": "Check Recommendation",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        300
+      ],
+      "id": "check-recommendation"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Simulate Email Draft Generation for Interview Invitation\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const candidateName = item.json.candidateName || 'Candidate';\n  const candidateEmail = item.json.candidateEmail || 'email@example.com';\n  const score = item.json.score;\n  \n  const emailDraft = {\n    to: candidateEmail,\n    subject: `Interview Invitation - ${candidateName}`,\n    body: `Dear ${candidateName},\\n\\nThank you for applying to our position. We were impressed by your profile (Score: ${score}/100) and would like to invite you for an interview.\\n\\nOur team will reach out shortly to schedule a convenient time for both parties.\\n\\nWe look forward to speaking with you!\\n\\nBest regards,\\nRecruit-AI Team`,\n    type: 'interview_invitation',\n    generated: new Date().toISOString()\n  };\n  \n  results.push({\n    json: {\n      ...item.json,\n      emailDraft: emailDraft,\n      emailDraftGenerated: true\n    }\n  });\n}\n\nreturn results;"
+      },
+      "name": "Generate Interview Email Draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1450,
+        200
+      ],
+      "id": "email-interview"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Simulate Email Draft Generation for Rejection\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const candidateName = item.json.candidateName || 'Candidate';\n  const candidateEmail = item.json.candidateEmail || 'email@example.com';\n  \n  const emailDraft = {\n    to: candidateEmail,\n    subject: `Application Update`,\n    body: `Dear ${candidateName},\\n\\nThank you for your interest in our position and for taking the time to apply.\\n\\nAfter careful review of your application, we have decided to move forward with other candidates whose experience more closely matches our current requirements.\\n\\nWe appreciate the time you invested in the application process and wish you the best of luck in your job search.\\n\\nBest regards,\\nRecruit-AI Team`,\n    type: 'rejection',\n    generated: new Date().toISOString()\n  };\n  \n  results.push({\n    json: {\n      ...item.json,\n      emailDraft: emailDraft,\n      emailDraftGenerated: true\n    }\n  });\n}\n\nreturn results;"
+      },
+      "name": "Generate Rejection Email Draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1450,
+        400
+      ],
+      "id": "email-rejection"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Simulate Calendar Integration for Interview Scheduling\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const candidateName = item.json.candidateName || 'Candidate';\n  const candidateEmail = item.json.candidateEmail || 'email@example.com';\n  \n  // Generate a suggested interview slot (3 days from now, 10 AM)\n  const interviewDate = new Date();\n  interviewDate.setDate(interviewDate.getDate() + 3);\n  interviewDate.setHours(10, 0, 0, 0);\n  \n  const calendarEvent = {\n    title: `Interview: ${candidateName}`,\n    description: `Technical interview with ${candidateName}\\nCandidate Score: ${item.json.score}/100\\nEmail: ${candidateEmail}`,\n    startTime: interviewDate.toISOString(),\n    duration: 60, // minutes\n    attendees: [candidateEmail],\n    location: 'Video Call (Link to be shared)',\n    status: 'tentative',\n    created: new Date().toISOString()\n  };\n  \n  results.push({\n    json: {\n      ...item.json,\n      calendarEvent: calendarEvent,\n      calendarEventCreated: true,\n      calendarNote: 'Simulated calendar event - configure Google Calendar credentials to create actual events'\n    }\n  });\n}\n\nreturn results;"
+      },
+      "name": "Simulate Calendar Integration",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1650,
+        200
+      ],
+      "id": "calendar-integration"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Return Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1850,
+        300
+      ],
+      "id": "final-response"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Configure LLM Provider",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configure LLM Provider": {
+      "main": [
+        [
+          {
+            "node": "Call LLM API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call LLM API": {
+      "main": [
+        [
+          {
+            "node": "Parse LLM Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse LLM Response": {
+      "main": [
+        [
+          {
+            "node": "Check Recommendation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Recommendation": {
+      "main": [
+        [
+          {
+            "node": "Generate Interview Email Draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate Rejection Email Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Interview Email Draft": {
+      "main": [
+        [
+          {
+            "node": "Simulate Calendar Integration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Rejection Email Draft": {
+      "main": [
+        [
+          {
+            "node": "Return Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simulate Calendar Integration": {
+      "main": [
+        [
+          {
+            "node": "Return Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

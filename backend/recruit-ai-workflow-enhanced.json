@@ -1,0 +1,255 @@
+{
+    "name": "Recruit-AI Agent (Enhanced)",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "analyze",
+                "options": {}
+            },
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ],
+            "id": "webhook-1"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{$json.body.jd}}",
+                            "operation": "isNotEmpty"
+                        },
+                        {
+                            "value1": "={{$json.body.resume}}",
+                            "operation": "isNotEmpty"
+                        }
+                    ]
+                }
+            },
+            "name": "Validate Input",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ],
+            "id": "validate-1"
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ { \"error\": \"Missing required fields: jd and resume\" } }}"
+            },
+            "name": "Return Error",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                450,
+                500
+            ],
+            "id": "error-response-1"
+        },
+        {
+            "parameters": {
+                "model": "gpt-4-turbo",
+                "prompt": "You are an expert Technical Recruiter with 10+ years of experience.\\n\\nAnalyze the following Resume against the Job Description. Be thorough and fair in your assessment.\\n\\nJOB DESCRIPTION:\\n{{$json.body.jd}}\\n\\nRESUME:\\n{{$json.body.resume}}\\n\\nOutput a JSON object with the following structure:\\n{\\n  \\\"score\\\": (0-100 integer, be realistic),\\n  \\\"summary\\\": (3-4 sentences explaining the fit, highlight strengths and gaps),\\n  \\\"recommendation\\\": (\\\"Interview\\\" or \\\"Reject\\\"),\\n  \\\"details\\\": [\\n    { \\\"criteria\\\": \\\"Experience\\\", \\\"status\\\": \\\"match\\\"/\\\"partial\\\"/\\\"miss\\\", \\\"reason\\\": \\\"specific explanation\\\" },\\n    { \\\"criteria\\\": \\\"Tech Stack\\\", \\\"status\\\": \\\"match\\\"/\\\"partial\\\"/\\\"miss\\\", \\\"reason\\\": \\\"specific explanation\\\" },\\n    { \\\"criteria\\\": \\\"Education\\\", \\\"status\\\": \\\"match\\\"/\\\"partial\\\"/\\\"miss\\\", \\\"reason\\\": \\\"specific explanation\\\" },\\n    { \\\"criteria\\\": \\\"Soft Skills\\\", \\\"status\\\": \\\"match\\\"/\\\"partial\\\"/\\\"miss\\\", \\\"reason\\\": \\\"specific explanation\\\" }\\n  ],\\n  \\\"candidateName\\\": \\\"extracted from resume\\\",\\n  \\\"candidateEmail\\\": \\\"extracted from resume if available\\\"\\n}",
+                "jsonOutput": true
+            },
+            "name": "AI Agent (LLM)",
+            "type": "n8n-nodes-base.openAi",
+            "typeVersion": 1,
+            "position": [
+                650,
+                300
+            ],
+            "credentials": {
+                "openAiApi": {
+                    "id": "YOUR_OPENAI_CREDENTIAL_ID",
+                    "name": "OpenAI Account"
+                }
+            },
+            "id": "llm-1"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{$json.recommendation}}",
+                            "operation": "equals",
+                            "value2": "Interview"
+                        }
+                    ]
+                }
+            },
+            "name": "Check Recommendation",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                850,
+                300
+            ],
+            "id": "check-rec-1"
+        },
+        {
+            "parameters": {
+                "subject": "Interview Invitation - {{$json.candidateName}}",
+                "emailType": "text",
+                "message": "Dear {{$json.candidateName}},\\n\\nThank you for applying! We were impressed by your profile and would like to invite you for an interview.\\n\\nOur team will reach out shortly to schedule a time.\\n\\nBest regards,\\nRecruit-AI Team",
+                "options": {}
+            },
+            "name": "Draft Interview Email",
+            "type": "n8n-nodes-base.emailSend",
+            "typeVersion": 2,
+            "position": [
+                1050,
+                200
+            ],
+            "id": "email-interview-1",
+            "disabled": true,
+            "notes": "Enable this when you configure SMTP credentials"
+        },
+        {
+            "parameters": {
+                "subject": "Application Update",
+                "emailType": "text",
+                "message": "Dear {{$json.candidateName}},\\n\\nThank you for your interest in our position. After careful review, we have decided to move forward with other candidates whose experience more closely matches our current needs.\\n\\nWe appreciate the time you invested and wish you the best in your job search.\\n\\nBest regards,\\nRecruit-AI Team",
+                "options": {}
+            },
+            "name": "Draft Rejection Email",
+            "type": "n8n-nodes-base.emailSend",
+            "typeVersion": 2,
+            "position": [
+                1050,
+                400
+            ],
+            "id": "email-reject-1",
+            "disabled": true,
+            "notes": "Enable this when you configure SMTP credentials"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Placeholder for Google Calendar Integration\\n// This would create a calendar event for the interview\\nconst result = $input.all();\\nreturn result.map(item => ({\\n  json: {\\n    ...item.json,\\n    calendarEventCreated: false,\\n    calendarNote: 'Calendar integration pending - configure Google Calendar credentials'\\n  }\\n}));"
+            },
+            "name": "Calendar Integration (Placeholder)",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1250,
+                200
+            ],
+            "id": "calendar-1"
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "name": "Return Success Response",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                1450,
+                300
+            ],
+            "id": "success-response-1"
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Validate Input",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Validate Input": {
+            "main": [
+                [
+                    {
+                        "node": "AI Agent (LLM)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Return Error",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Agent (LLM)": {
+            "main": [
+                [
+                    {
+                        "node": "Check Recommendation",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Recommendation": {
+            "main": [
+                [
+                    {
+                        "node": "Draft Interview Email",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Draft Rejection Email",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Draft Interview Email": {
+            "main": [
+                [
+                    {
+                        "node": "Calendar Integration (Placeholder)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Draft Rejection Email": {
+            "main": [
+                [
+                    {
+                        "node": "Return Success Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Calendar Integration (Placeholder)": {
+            "main": [
+                [
+                    {
+                        "node": "Return Success Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}
