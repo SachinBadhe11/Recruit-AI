@@ -24,9 +24,26 @@ const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || "http://localhos
  */
 const getUserSettings = async () => {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
+        console.log('   2a. Getting user from Supabase auth...');
+
+        // Timeout for auth check
+        const authTimeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Auth check timed out')), 5000)
+        );
+
+        const authPromise = supabase.auth.getUser();
+
+        const { data: { user } } = await Promise.race([authPromise, authTimeoutPromise])
+            .catch(err => {
+                console.warn('Auth check failed or timed out:', err);
+                return { data: { user: null } };
+            });
+
+        console.log('   2b. User retrieved:', user?.id);
+
         if (!user) {
-            throw new Error('User not authenticated');
+            console.warn('User not authenticated, using defaults');
+            return { userId: 'guest', provider: 'openai', providerConfig: null };
         }
 
         // Create a promise that rejects after 5 seconds
