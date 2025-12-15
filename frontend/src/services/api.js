@@ -16,9 +16,8 @@ const MOCK_RESPONSE = {
 };
 
 // Environment variables
-const N8N_WEBHOOK_URL_ANALYZE = import.meta.env.VITE_N8N_WEBHOOK_URL_ANALYZE || "http://localhost:5678/webhook/analyze";
-const N8N_WEBHOOK_URL_EMAIL = import.meta.env.VITE_N8N_WEBHOOK_URL_EMAIL || "http://localhost:5678/webhook/send-email";
-const N8N_WEBHOOK_URL_CALENDAR = import.meta.env.VITE_N8N_WEBHOOK_URL_CALENDAR || "http://localhost:5678/webhook/schedule-interview";
+// Environment variables
+const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || "http://localhost:5678/webhook/recruit-ai-action";
 
 /**
  * Get user's active provider and settings from Supabase
@@ -89,13 +88,14 @@ export const analyzeCandidate = async (jdText, resumeText) => {
         const authToken = await getAuthToken();
 
         // Make request to n8n webhook
-        const response = await fetch(N8N_WEBHOOK_URL_ANALYZE, {
+        const response = await fetch(N8N_WEBHOOK_URL, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 ...(authToken && { "Authorization": `Bearer ${authToken}` })
             },
             body: JSON.stringify({
+                action: 'analyze',
                 jd: jdText,
                 resume: resumeText,
                 provider: provider,
@@ -213,13 +213,14 @@ export const sendEmail = async (screeningId, type) => {
         const { userId } = await getUserSettings();
         const authToken = await getAuthToken();
 
-        const response = await fetch(N8N_WEBHOOK_URL_EMAIL, {
+        const response = await fetch(N8N_WEBHOOK_URL, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 ...(authToken && { "Authorization": `Bearer ${authToken}` })
             },
             body: JSON.stringify({
+                action: 'send_email',
                 userId,
                 screeningId,
                 type,
@@ -249,13 +250,14 @@ export const scheduleInterview = async (screeningId, datetime) => {
         const { userId } = await getUserSettings();
         const authToken = await getAuthToken();
 
-        const response = await fetch(N8N_WEBHOOK_URL_CALENDAR, {
+        const response = await fetch(N8N_WEBHOOK_URL, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 ...(authToken && { "Authorization": `Bearer ${authToken}` })
             },
             body: JSON.stringify({
+                action: 'schedule_interview',
                 userId,
                 screeningId,
                 datetime,
