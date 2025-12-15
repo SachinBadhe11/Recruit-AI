@@ -116,6 +116,11 @@ export const analyzeCandidate = async (jdText, resumeText) => {
             result = result[0];
         }
 
+        // Handle n8n standard "json" wrapper
+        if (result && result.json) {
+            result = result.json;
+        }
+
         // Save screening result to Supabase
         await saveScreening(result, jdText, resumeText);
 
