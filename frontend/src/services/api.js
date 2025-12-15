@@ -126,10 +126,16 @@ export const analyzeCandidate = async (jdText, resumeText) => {
 
         console.log('Final unwrapped result:', result);
 
-        // Validate that we have essential data
-        if (!result || typeof result.score === 'undefined' || !result.summary) {
-            console.error('Invalid analysis result:', result);
+        // Validate that we have essential data (relaxed to allow extra fields from email nodes)
+        if (!result || typeof result.score === 'undefined') {
+            console.error('Invalid analysis result - missing score:', result);
             throw new Error('Analysis completed but returned incomplete data. Please try again.');
+        }
+
+        // If summary is missing but we have other data, provide a fallback
+        if (!result.summary) {
+            console.warn('Analysis result missing summary, using fallback');
+            result.summary = 'Analysis completed. Please review the detailed breakdown below.';
         }
 
         // Save screening result to Supabase

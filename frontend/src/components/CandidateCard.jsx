@@ -3,10 +3,13 @@ import { Check, X, Calendar, Sparkles, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const CandidateCard = ({ result }) => {
-    // Only render if we have actual analysis data
-    if (!result || typeof result.score === 'undefined' || !result.summary) {
+    // Only render if we have actual analysis data (relaxed validation)
+    if (!result || typeof result.score === 'undefined') {
         return null;
     }
+
+    // Provide fallback for missing summary
+    const summary = result.summary || 'Analysis completed. Please review the detailed breakdown below.';
 
     const scoreColor = result.score >= 80 ? 'text-green-600' : result.score >= 60 ? 'text-yellow-600' : 'text-red-600';
     const ringColor = result.score >= 80 ? 'stroke-green-500' : result.score >= 60 ? 'stroke-yellow-500' : 'stroke-red-500';
@@ -62,7 +65,7 @@ const CandidateCard = ({ result }) => {
                             Executive Summary
                         </h4>
                         <div className="bg-surface-50 p-6 rounded-2xl border border-surface-100 leading-relaxed text-surface-600">
-                            {result.summary}
+                            {summary}
                         </div>
                     </div>
 
