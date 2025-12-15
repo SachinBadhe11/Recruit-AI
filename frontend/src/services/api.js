@@ -160,14 +160,11 @@ export const analyzeCandidate = async (jdText, resumeText) => {
 
         console.log('✓ Validation passed!');
 
-        // Save screening result to Supabase (don't block if this fails)
-        try {
-            await saveScreening(result, jdText, resumeText);
-            console.log('✓ Saved to Supabase');
-        } catch (saveError) {
-            console.warn('⚠️ Failed to save to Supabase (non-critical):', saveError);
-            // Don't throw - we still want to return the result even if saving fails
-        }
+        // Save screening result to Supabase (non-blocking to prevent UI hang)
+        console.log('Saving to Supabase (background)...');
+        saveScreening(result, jdText, resumeText)
+            .then(() => console.log('✓ Saved to Supabase'))
+            .catch(err => console.error('❌ Failed to save to Supabase:', err));
 
         return result;
     } catch (error) {
