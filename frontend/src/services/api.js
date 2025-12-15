@@ -110,33 +110,48 @@ export const analyzeCandidate = async (jdText, resumeText) => {
         }
 
         let result = await response.json();
-        console.log('Raw n8n response:', result);
+        console.log('=== RAW N8N RESPONSE ===');
+        console.log('Type:', typeof result);
+        console.log('Is Array:', Array.isArray(result));
+        console.log('Full Response:', JSON.stringify(result, null, 2));
 
         // Handle n8n array response
         if (Array.isArray(result)) {
-            console.log('Unwrapping array response');
+            console.log('✓ Unwrapping array response');
+            console.log('Array length:', result.length);
+            console.log('First item:', JSON.stringify(result[0], null, 2));
             result = result[0];
         }
 
         // Handle n8n standard "json" wrapper
         if (result && result.json) {
-            console.log('Unwrapping json property');
+            console.log('✓ Unwrapping json property');
+            console.log('Json property:', JSON.stringify(result.json, null, 2));
             result = result.json;
         }
 
-        console.log('Final unwrapped result:', result);
+        console.log('=== FINAL UNWRAPPED RESULT ===');
+        console.log('Type:', typeof result);
+        console.log('Has score:', 'score' in result, '- Value:', result.score);
+        console.log('Has summary:', 'summary' in result, '- Value:', result.summary?.substring(0, 50));
+        console.log('Has recommendation:', 'recommendation' in result, '- Value:', result.recommendation);
+        console.log('Has details:', 'details' in result, '- Length:', result.details?.length);
+        console.log('All keys:', Object.keys(result));
 
         // Validate that we have essential data (relaxed to allow extra fields from email nodes)
         if (!result || typeof result.score === 'undefined') {
-            console.error('Invalid analysis result - missing score:', result);
+            console.error('❌ VALIDATION FAILED - Missing score');
+            console.error('Result object:', result);
             throw new Error('Analysis completed but returned incomplete data. Please try again.');
         }
 
         // If summary is missing but we have other data, provide a fallback
         if (!result.summary) {
-            console.warn('Analysis result missing summary, using fallback');
+            console.warn('⚠️ Summary missing, using fallback');
             result.summary = 'Analysis completed. Please review the detailed breakdown below.';
         }
+
+        console.log('✓ Validation passed!');
 
         // Save screening result to Supabase
         await saveScreening(result, jdText, resumeText);

@@ -1,0 +1,422 @@
+{
+    "name": "Recruit-AI Unified Workflow (Optimized)",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "recruit-ai-action",
+                "options": {}
+            },
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ],
+            "id": "webhook-node",
+            "webhookId": "recruit-ai-unified-webhook"
+        },
+        {
+            "parameters": {
+                "dataType": "string",
+                "value1": "={{$json.body.action}}",
+                "rules": {
+                    "rules": [
+                        {
+                            "value2": "analyze",
+                            "output": 0
+                        },
+                        {
+                            "value2": "send_email",
+                            "output": 1
+                        },
+                        {
+                            "value2": "schedule_interview",
+                            "output": 2
+                        }
+                    ]
+                }
+            },
+            "name": "Route Action",
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ],
+            "id": "route-action"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{$json.body.jd}}",
+                            "operation": "isNotEmpty"
+                        },
+                        {
+                            "value1": "={{$json.body.resume}}",
+                            "operation": "isNotEmpty"
+                        }
+                    ]
+                }
+            },
+            "name": "Validate Input",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                650,
+                100
+            ],
+            "id": "validate-input"
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ { \"error\": \"Missing required fields: jd and resume\" } }}"
+            },
+            "name": "Return Error",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                650,
+                300
+            ],
+            "id": "error-response"
+        },
+        {
+            "parameters": {
+                "jsCode": "// LLM Configuration\nconst body = $input.first().json.body;\nconst provider = body.provider || 'openai';\n\n// Provider URL configurations\nconst PROVIDER_URLS = {\n  openai: 'https://api.openai.com/v1/chat/completions',\n  perplexity: 'https://api.perplexity.ai/chat/completions',\n  gemini: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',\n  custom: body.customUrl || 'https://api.openai.com/v1/chat/completions'\n};\n\n// ⚠️ REPLACE THESE WITH YOUR ACTUAL KEYS ⚠️\nlet apiKey;\nlet model;\n\nswitch(provider) {\n  case 'openai':\n    apiKey = 'sk-YOUR-OPENAI-KEY-HERE'; // <--- PASTE KEY HERE\n    model = 'gpt-4-turbo';\n    break;\n  case 'perplexity':\n    apiKey = 'pplx-YOUR-KEY-HERE'; // <--- PASTE KEY HERE\n    model = 'llama-3.1-sonar-large-128k-online';\n    break;\n  case 'gemini':\n    apiKey = 'AIza-YOUR-KEY-HERE'; // <--- PASTE KEY HERE\n    model = 'gemini-pro';\n    break;\n  case 'custom':\n    apiKey = 'YOUR-CUSTOM-KEY';\n    model = body.customModel || 'gpt-3.5-turbo';\n    break;\n  default:\n    throw new Error(`Unknown provider: ${provider}`);\n}\n\nif (!apiKey || apiKey.includes('YOUR-KEY-HERE')) {\n  // Fallback for testing if key not set\n  // throw new Error(`API key not configured for provider: ${provider}`);\n}\n\nconst config = {\n  url: PROVIDER_URLS[provider],\n  model: model,\n  apiKeyHeader: provider === 'gemini' ? 'x-goog-api-key' : 'Authorization',\n  apiKeyPrefix: provider === 'gemini' ? '' : 'Bearer ',\n  apiKey: apiKey\n};\n\nconst jd = body.jd;\nconst resume = body.resume;\n\n// System prompt\nconst systemPrompt = `You are an expert Technical Recruiter with 10+ years of experience.\n\nAnalyze the following Resume against the Job Description. Be thorough, fair, and realistic in your assessment.\n\nProvide a comprehensive analysis and output ONLY a valid JSON object with this exact structure:\n{\n  \"score\": (integer between 0-100, be realistic and fair),\n  \"summary\": \"3-4 sentences explaining the overall fit, highlighting key strengths and any significant gaps\",\n  \"recommendation\": \"Interview\" or \"Reject\",\n  \"details\": [\n    { \"criteria\": \"Experience\", \"status\": \"match\" or \"partial\" or \"miss\", \"reason\": \"specific explanation with years/details\" },\n    { \"criteria\": \"Technical Skills\", \"status\": \"match\" or \"partial\" or \"miss\", \"reason\": \"specific technologies and proficiency\" },\n    { \"criteria\": \"Education\", \"status\": \"match\" or \"partial\" or \"miss\", \"reason\": \"degree and institution details\" },\n    { \"criteria\": \"Soft Skills\", \"status\": \"match\" or \"partial\" or \"miss\", \"reason\": \"communication, leadership, teamwork assessment\" }\n  ],\n  \"candidateName\": \"extracted full name from resume\",\n  \"candidateEmail\": \"extracted email from resume or 'Not provided'\"\n}\n\nScoring Guidelines:\n- 90-100: Exceptional fit, exceeds requirements\n- 75-89: Strong fit, meets most requirements\n- 60-74: Moderate fit, has potential but gaps exist\n- 40-59: Weak fit, significant gaps\n- 0-39: Poor fit, does not meet requirements\n\nRecommendation Guidelines:\n- \"Interview\": Score >= 65 OR strong potential despite lower score\n- \"Reject\": Score < 65 AND no exceptional qualities`;\n\nconst userPrompt = `JOB DESCRIPTION:\\n${jd}\\n\\nRESUME:\\n${resume}`;\n\n// Prepare request body\nlet requestBody;\nif (provider === 'gemini') {\n  requestBody = {\n    contents: [{\n      parts: [{\n        text: systemPrompt + '\\n\\n' + userPrompt\n      }]\n    }],\n    generationConfig: {\n      temperature: 0.7,\n      maxOutputTokens: 2048\n    }\n  };\n} else {\n  requestBody = {\n    model: config.model,\n    messages: [\n      { role: 'system', content: systemPrompt },\n      { role: 'user', content: userPrompt }\n    ],\n    temperature: 0.7,\n    max_tokens: 2048\n  };\n}\n\nreturn [{\n  json: {\n    llmConfig: config,\n    requestBody: requestBody,\n    jd: jd,\n    resume: resume,\n    provider: provider,\n    userId: body.userId\n  }\n}];"
+            },
+            "name": "Configure LLM Provider",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                850,
+                100
+            ],
+            "id": "configure-llm"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{$json.llmConfig.url}}",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "={{$json.llmConfig.apiKeyHeader}}",
+                            "value": "={{$json.llmConfig.apiKeyPrefix + $json.llmConfig.apiKey}}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": []
+                },
+                "specifyBody": "json",
+                "jsonBody": "={{JSON.stringify($json.requestBody)}}",
+                "options": {}
+            },
+            "name": "Call LLM API",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1050,
+                100
+            ],
+            "id": "http-llm-call"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse LLM response\nconst item = $input.first().json;\nlet responseText;\n\nif (item.choices && item.choices[0]) {\n  responseText = item.choices[0].message.content;\n} else if (item.candidates && item.candidates[0]) {\n  responseText = item.candidates[0].content.parts[0].text;\n} else if (item.response) {\n  responseText = item.response;\n} else if (typeof item === 'string') {\n  responseText = item;\n} else {\n  throw new Error('Unable to parse LLM response format');\n}\n\nlet parsedData;\ntry {\n  parsedData = JSON.parse(responseText);\n} catch (e) {\n  const jsonMatch = responseText.match(/```json\\s*([\\s\\S]*?)```/) || \n                    responseText.match(/```\\s*([\\s\\S]*?)```/) ||\n                    responseText.match(/\\{[\\s\\S]*\\}/);\n  \n  if (jsonMatch) {\n    const jsonStr = jsonMatch[1] || jsonMatch[0];\n    parsedData = JSON.parse(jsonStr);\n  } else {\n    throw new Error('Failed to extract JSON from LLM response');\n  }\n}\n\nif (!parsedData.score || !parsedData.summary || !parsedData.recommendation) {\n  throw new Error('LLM response missing required fields');\n}\n\nparsedData.score = Math.max(0, Math.min(100, parseInt(parsedData.score)));\n\nif (!['Interview', 'Reject'].includes(parsedData.recommendation)) {\n  parsedData.recommendation = parsedData.score >= 65 ? 'Interview' : 'Reject';\n}\n\nreturn [{ json: parsedData }];"
+            },
+            "name": "Parse LLM Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1250,
+                100
+            ],
+            "id": "parse-response"
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "name": "Return Analysis Result",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                1450,
+                0
+            ],
+            "id": "return-analysis-result"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{$json.recommendation}}",
+                            "operation": "equals",
+                            "value2": "Interview"
+                        }
+                    ]
+                }
+            },
+            "name": "Check Recommendation",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                1450,
+                200
+            ],
+            "id": "check-recommendation"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Generate Interview Email Content\nconst candidateName = $json.candidateName || 'Candidate';\nconst candidateEmail = $json.candidateEmail || 'email@example.com';\nconst score = $json.score;\n\nconst emailSubject = `🎉 Interview Invitation - ${candidateName}`;\nconst emailBody = `Dear ${candidateName},\n\nThank you for applying to our position. We were impressed by your profile and qualifications.\n\n📊 Your Application Score: ${score}/100\n\nWe would like to invite you for an interview to discuss this opportunity further.\n\nOur team will reach out shortly to schedule a convenient time for both parties. The interview will typically last 45-60 minutes and will be conducted via video call.\n\nPlease let us know your availability for the next week, and we'll do our best to accommodate your schedule.\n\nWe look forward to speaking with you!\n\nBest regards,\nRecruit-AI Team\n\n---\nThis is an automated message from Recruit-AI. Please do not reply to this email.`;\n\nreturn [{\n  json: {\n    ...$json,\n    emailSubject: emailSubject,\n    emailBody: emailBody,\n    emailType: 'interview_invitation'\n  }\n}];"
+            },
+            "name": "Generate Interview Email",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1650,
+                100
+            ],
+            "id": "email-interview-draft"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Generate Rejection Email Content\nconst candidateName = $json.candidateName || 'Candidate';\nconst candidateEmail = $json.candidateEmail || 'email@example.com';\n\nconst emailSubject = `Application Update - ${candidateName}`;\nconst emailBody = `Dear ${candidateName},\n\nThank you for your interest in our position and for taking the time to apply.\n\nAfter careful review of your application, we have decided to move forward with other candidates whose experience more closely matches our current requirements.\n\nWe truly appreciate the time and effort you invested in the application process. Your skills and experience are valuable, and we encourage you to apply for future positions that may be a better fit.\n\nWe wish you the best of luck in your job search and future career endeavors.\n\nBest regards,\nRecruit-AI Team\n\n---\nThis is an automated message from Recruit-AI. Please do not reply to this email.`;\n\nreturn [{\n  json: {\n    ...$json,\n    emailSubject: emailSubject,\n    emailBody: emailBody,\n    emailType: 'rejection'\n  }\n}];"
+            },
+            "name": "Generate Rejection Email",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1650,
+                300
+            ],
+            "id": "email-rejection-draft"
+        },
+        {
+            "parameters": {
+                "fromEmail": "recruiter@yourcompany.com",
+                "toEmail": "={{ $json.candidateEmail }}",
+                "subject": "={{ $json.emailSubject }}",
+                "text": "={{ $json.emailBody }}",
+                "options": {}
+            },
+            "name": "Send Interview Email",
+            "type": "n8n-nodes-base.emailSend",
+            "typeVersion": 2,
+            "position": [
+                1850,
+                100
+            ],
+            "id": "send-interview-email",
+            "credentials": {
+                "smtp": {
+                    "id": "1",
+                    "name": "SMTP account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "fromEmail": "recruiter@yourcompany.com",
+                "toEmail": "={{ $json.candidateEmail }}",
+                "subject": "={{ $json.emailSubject }}",
+                "text": "={{ $json.emailBody }}",
+                "options": {}
+            },
+            "name": "Send Rejection Email",
+            "type": "n8n-nodes-base.emailSend",
+            "typeVersion": 2,
+            "position": [
+                1850,
+                300
+            ],
+            "id": "send-rejection-email",
+            "credentials": {
+                "smtp": {
+                    "id": "1",
+                    "name": "SMTP account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ { \"message\": \"Manual email sending not implemented yet\" } }}"
+            },
+            "name": "Manual Email Placeholder",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                650,
+                500
+            ],
+            "id": "manual-email-placeholder"
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ { \"message\": \"Calendar scheduling not implemented yet\" } }}"
+            },
+            "name": "Calendar Placeholder",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                650,
+                700
+            ],
+            "id": "calendar-placeholder"
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Route Action",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Route Action": {
+            "main": [
+                [
+                    {
+                        "node": "Validate Input",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Manual Email Placeholder",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Calendar Placeholder",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Validate Input": {
+            "main": [
+                [
+                    {
+                        "node": "Configure LLM Provider",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Return Error",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Configure LLM Provider": {
+            "main": [
+                [
+                    {
+                        "node": "Call LLM API",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Call LLM API": {
+            "main": [
+                [
+                    {
+                        "node": "Parse LLM Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse LLM Response": {
+            "main": [
+                [
+                    {
+                        "node": "Return Analysis Result",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Check Recommendation",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Recommendation": {
+            "main": [
+                [
+                    {
+                        "node": "Generate Interview Email",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Generate Rejection Email",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Generate Interview Email": {
+            "main": [
+                [
+                    {
+                        "node": "Send Interview Email",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Generate Rejection Email": {
+            "main": [
+                [
+                    {
+                        "node": "Send Rejection Email",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}
