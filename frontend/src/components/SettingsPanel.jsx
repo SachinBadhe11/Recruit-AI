@@ -88,41 +88,45 @@ const SettingsPanel = () => {
 
     const saveSettings = async () => {
         setSaving(true);
+        console.log('SAVE CLICKED');
 
         try {
-            const {
-                data: { user },
-                error: authError,
-            } = await supabase.auth.getUser();
-
-            if (authError || !user) {
-                throw new Error("User not authenticated");
-            }
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Not authenticated');
 
             const settingsData = {
                 user_id: user.id,
                 active_provider: activeProvider,
                 provider_config: {
                     providers,
-                    smtp: smtpConfig,
+                    smtp: smtpConfig
                 },
-                updated_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
             };
 
-            const { error } = await supabase
-                .from("settings")
-                .upsert(settingsData, { onConflict: "user_id" });
+            console.log('UPSERT DATA', settingsData);
 
-            if (error) throw error;
+            const { data, error } = await supabase
+                .from('settings')
+                .upsert(settingsData, { onConflict: 'user_id' })
+                .select();
 
-            alert("✅ Settings saved successfully!");
+            if (error) {
+                console.error('UPSERT ERROR', error);
+                throw error;
+            }
+
+            console.log('UPSERT SUCCESS', data);
+            alert('✅ Settings saved successfully!');
         } catch (err) {
-            console.error("Save settings failed:", err);
+            console.error('SAVE FAILED', err);
             alert(`❌ Failed to save settings: ${err.message}`);
         } finally {
-            setSaving(false); // 🔥 CRITICAL
+            console.log('SAVE FINISHED');
+            setSaving(false);
         }
     };
+
 
     /* ---------------- HELPERS ---------------- */
 
