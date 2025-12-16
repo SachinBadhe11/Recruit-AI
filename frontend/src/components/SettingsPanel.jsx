@@ -72,6 +72,34 @@ const SettingsPanel = () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Not authenticated');
 
+            // Self-healing: Ensure profile exists before saving settings
+            // This prevents 406 Foreign Key errors if the trigger failed
+            try {
+                // Try calling the RPC function first (best way)
+                const { error: rpcError } = await supabase.rpc('ensure_user_profile');
+
+                if (rpcError) {
+                    console.warn('RPC ensure_user_profile failed, falling back to manual upsert:', rpcError);
+                    // Fallback: Manual upsert if RPC fails or doesn't exist
+                    const { error: profileError } = await supabase
+                        .from('profiles')
+                        .upsert({
+                            id: user.id,
+                            email: user.email,
+                            name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+                            role: 'Talent Acquisition',
+                            updated_at: new Date().toISOString()
+                        }, { onConflict: 'id' });
+
+                    if (profileError) {
+                        console.error('Failed to ensure profile exists:', profileError);
+                        // Don't throw here, try to save settings anyway, it might work if profile exists
+                    }
+                }
+            } catch (err) {
+                console.warn('Profile check failed:', err);
+            }
+
             const settingsData = {
                 user_id: user.id,
                 active_provider: activeProvider,
@@ -93,7 +121,7 @@ const SettingsPanel = () => {
             alert('✅ Settings saved successfully!');
         } catch (error) {
             console.error('Error saving settings:', error);
-            alert('❌ Failed to save settings. Please try again.');
+            alert(`❌ Failed to save settings: ${error.message || 'Unknown error'}`);
         } finally {
             setSaving(false);
         }
