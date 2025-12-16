@@ -256,7 +256,7 @@ function App() {
                   Configure your Recruit-AI preferences and integrations.
                 </p>
               </div>
-              <SettingsPanel />
+              <SettingsPanel user={user} />
             </div>
           )}
         </div>

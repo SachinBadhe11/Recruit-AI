@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
-const SettingsPanel = () => {
+const SettingsPanel = ({ user }) => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [activeProvider, setActiveProvider] = useState("openai");
@@ -38,20 +38,17 @@ const SettingsPanel = () => {
 
     const [smtpConfigured, setSmtpConfigured] = useState(false);
     const [testingProvider, setTestingProvider] = useState(null);
-    const [currentUser, setCurrentUser] = useState(null); // Cache user object
 
     /* ---------------- LOAD SETTINGS ---------------- */
 
     useEffect(() => {
         loadSettings();
-    }, []);
+    }, [user]);
+
 
     const loadSettings = async () => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
-
-            setCurrentUser(user); // Store user in state
 
             const { data, error } = await supabase
                 .from("settings")
@@ -87,19 +84,16 @@ const SettingsPanel = () => {
     };
 
 
+
     /* ---------------- SAVE SETTINGS (FIXED) ---------------- */
 
     const saveSettings = async () => {
         setSaving(true);
-        console.log('SAVE CLICKED');
+        console.log("SAVE CLICKED");
 
         try {
-            // Use cached user instead of awaiting promise
-            const user = currentUser;
-
             if (!user) {
-                console.error('No cached user found');
-                throw new Error('Not authenticated (No User Found)');
+                throw new Error("User not available");
             }
 
             const settingsData = {
@@ -112,28 +106,26 @@ const SettingsPanel = () => {
                 updated_at: new Date().toISOString()
             };
 
-            console.log('UPSERT DATA', settingsData);
+            console.log("UPSERT DATA", settingsData);
 
             const { data, error } = await supabase
-                .from('settings')
-                .upsert(settingsData, { onConflict: 'user_id' })
+                .from("settings")
+                .upsert(settingsData, { onConflict: "user_id" })
                 .select();
 
-            if (error) {
-                console.error('UPSERT ERROR', error);
-                throw error;
-            }
+            if (error) throw error;
 
-            console.log('UPSERT SUCCESS', data);
-            alert('✅ Settings saved successfully!');
+            console.log("UPSERT SUCCESS", data);
+            alert("✅ Settings saved successfully!");
         } catch (err) {
-            console.error('SAVE FAILED', err);
+            console.error("SAVE FAILED", err);
             alert(`❌ Failed to save settings: ${err.message}`);
         } finally {
-            console.log('SAVE FINISHED');
+            console.log("SAVE FINISHED");
             setSaving(false);
         }
     };
+
 
 
     /* ---------------- HELPERS ---------------- */
