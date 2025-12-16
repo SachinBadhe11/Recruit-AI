@@ -166,10 +166,12 @@ const SettingsPanel = () => {
                     </div>
 
                     <button
+                        type="button"          // 🔥 ADD THIS LINE
                         onClick={saveSettings}
                         disabled={saving}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-xl disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium disabled:opacity-50"
                     >
+
                         {saving ? (
                             <>
                                 <Loader2 size={18} className="animate-spin" />
