@@ -149,12 +149,6 @@ export const analyzeCandidate = async (jdText, resumeText) => {
         console.log('🚀 Sending request to n8n:', N8N_WEBHOOK_URL);
         console.log('Request body:', { action: 'analyze', jd: jdText.substring(0, 50) + '...', resume: resumeText.substring(0, 50) + '...' });
 
-        // Get the specific config for the active provider to send
-        // providerConfig from getUserSettings is the whole object { providers: {...}, smtp: {...} }
-        // We want to send the specific provider details if they exist
-        const { providerConfig: fullConfig } = await getUserSettings();
-        const specificProviderConfig = fullConfig?.providers?.[provider] || null;
-
         const response = await fetch(N8N_WEBHOOK_URL, {
             method: "POST",
             headers: {
@@ -167,7 +161,6 @@ export const analyzeCandidate = async (jdText, resumeText) => {
                 resume: resumeText,
                 provider: provider,
                 userId: userId,
-                providerConfig: specificProviderConfig, // Send specific provider details (apiKey, model)
                 timestamp: new Date().toISOString()
             }),
         });
@@ -294,7 +287,19 @@ export const saveScreening = async (result, jdText, resumeText) => {
  */
 export const getScreenings = async (filters = {}) => {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
+        // Timeout for auth check
+        const authTimeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Auth check timed out')), 2000)
+        );
+
+        const authPromise = supabase.auth.getUser();
+
+        const { data: { user } } = await Promise.race([authPromise, authTimeoutPromise])
+            .catch(err => {
+                console.warn('Auth check failed:', err);
+                return { data: { user: null } };
+            });
+
         if (!user) return [];
 
         let query = supabase
@@ -320,9 +325,23 @@ export const getScreenings = async (filters = {}) => {
             query = query.limit(filters.limit);
         }
 
-        const { data, error } = await query;
+        // Timeout for query
+        const queryTimeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Query timed out')), 5000)
+        );
+
+        const { data, error } = await Promise.race([query, queryTimeoutPromise])
+            .catch(err => {
+                console.warn('Screenings query timed out or failed:', err);
+                return { data: [], error: err };
+            });
 
         if (error) {
+            // Handle missing table gracefully
+            if (error.code === 'PGRST116' || error.code === '42P01') {
+                console.warn('Screenings table not found or empty');
+                return [];
+            }
             console.error('Error fetching screenings:', error);
             return [];
         }
@@ -342,15 +361,8 @@ export const getScreenings = async (filters = {}) => {
  */
 export const sendEmail = async (screeningId, type) => {
     try {
-        const { userId, provider, providerConfig } = await getUserSettings();
+        const { userId } = await getUserSettings();
         const authToken = await getAuthToken();
-
-        // Extract SMTP config if available
-        // Note: getUserSettings returns providerConfig which is the whole JSON object if we updated it correctly
-        // But wait, getUserSettings returns: { userId, provider, providerConfig: data?.provider_config || null }
-        // So providerConfig contains { providers: {...}, smtp: {...} }
-
-        const smtpConfig = providerConfig?.smtp || null;
 
         const response = await fetch(N8N_WEBHOOK_URL, {
             method: "POST",
@@ -363,7 +375,6 @@ export const sendEmail = async (screeningId, type) => {
                 userId,
                 screeningId,
                 type,
-                smtp: smtpConfig, // Pass SMTP config dynamically
                 timestamp: new Date().toISOString()
             }),
         });
@@ -474,17 +485,42 @@ export const updateSettings = async (settings) => {
  */
 export const getSettings = async () => {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
+        // Timeout for auth check
+        const authTimeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Auth check timed out')), 2000)
+        );
+
+        const authPromise = supabase.auth.getUser();
+
+        const { data: { user } } = await Promise.race([authPromise, authTimeoutPromise])
+            .catch(err => {
+                console.warn('Auth check failed:', err);
+                return { data: { user: null } };
+            });
+
         if (!user) return null;
 
-        const { data, error } = await supabase
+        // Timeout for query
+        const queryTimeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Query timed out')), 5000)
+        );
+
+        const queryPromise = supabase
             .from('settings')
             .select('*')
             .eq('user_id', user.id)
             .single();
 
-        if (error && error.code !== 'PGRST116') {
-            console.error('Error fetching settings:', error);
+        const { data, error } = await Promise.race([queryPromise, queryTimeoutPromise])
+            .catch(err => {
+                console.warn('Settings query timed out or failed:', err);
+                return { data: null, error: err };
+            });
+
+        if (error) {
+            if (error.code !== 'PGRST116' && error.code !== '42P01') {
+                console.error('Error fetching settings:', error);
+            }
             return null;
         }
 
