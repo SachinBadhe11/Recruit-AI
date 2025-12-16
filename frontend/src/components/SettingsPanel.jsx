@@ -17,7 +17,12 @@ const SettingsPanel = () => {
     const [showSMTPModal, setShowSMTPModal] = useState(false);
     const [calendarConnected, setCalendarConnected] = useState(false);
     const [smtpConfigured, setSmtpConfigured] = useState(false);
-    const [testingProvider, setTestingProvider] = useState(null);
+    const [smtpConfig, setSmtpConfig] = useState({
+        host: '',
+        port: '587',
+        username: '',
+        password: ''
+    });
 
     // Load settings from Supabase on mount
     useEffect(() => {
@@ -48,6 +53,10 @@ const SettingsPanel = () => {
                         ...data.provider_config.providers
                     }));
                 }
+                if (data.provider_config?.smtp) {
+                    setSmtpConfig(data.provider_config.smtp);
+                    setSmtpConfigured(!!data.provider_config.smtp.host);
+                }
             }
         } catch (error) {
             console.error('Error loading settings:', error);
@@ -65,7 +74,10 @@ const SettingsPanel = () => {
             const settingsData = {
                 user_id: user.id,
                 active_provider: activeProvider,
-                provider_config: { providers },
+                provider_config: {
+                    providers,
+                    smtp: smtpConfig
+                },
                 updated_at: new Date().toISOString()
             };
 
@@ -116,7 +128,7 @@ const SettingsPanel = () => {
         perplexity: {
             name: 'Perplexity AI',
             color: 'blue',
-            models: ['llama-3.1-sonar-large-128k-online', 'llama-3.1-sonar-small-128k-online', 'llama-3.1-sonar-large-128k-chat'],
+            models: ['sonar-pro', 'sonar', 'llama-3.1-sonar-large-128k-online'],
             placeholder: 'pplx-...',
             docs: 'https://www.perplexity.ai/settings/api'
         },
@@ -253,15 +265,24 @@ const SettingsPanel = () => {
                                     <label className="block text-sm font-semibold text-surface-700 mb-2">
                                         Model
                                     </label>
-                                    <select
-                                        value={providers[activeProvider]?.model || ''}
-                                        onChange={(e) => updateProvider(activeProvider, 'model', e.target.value)}
-                                        className="w-full px-4 py-2 border border-surface-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                                    >
-                                        {providerConfigs[activeProvider].models.map(model => (
-                                            <option key={model} value={model}>{model}</option>
-                                        ))}
-                                    </select>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            list={`models-${activeProvider}`}
+                                            value={providers[activeProvider]?.model || ''}
+                                            onChange={(e) => updateProvider(activeProvider, 'model', e.target.value)}
+                                            placeholder="Select or type model name..."
+                                            className="w-full px-4 py-2 border border-surface-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                                        />
+                                        <datalist id={`models-${activeProvider}`}>
+                                            {providerConfigs[activeProvider].models.map(model => (
+                                                <option key={model} value={model} />
+                                            ))}
+                                        </datalist>
+                                    </div>
+                                    <p className="text-xs text-surface-500 mt-1">
+                                        Select from list or type a custom model ID (e.g., sonar-pro, gpt-4o)
+                                    </p>
                                 </div>
                             )}
 
@@ -431,8 +452,10 @@ const SettingsPanel = () => {
             <AnimatePresence>
                 {showSMTPModal && (
                     <SMTPModal
+                        initialData={smtpConfig}
                         onClose={() => setShowSMTPModal(false)}
-                        onSave={() => {
+                        onSave={(data) => {
+                            setSmtpConfig(data);
                             setSmtpConfigured(true);
                             setShowSMTPModal(false);
                         }}
@@ -505,9 +528,9 @@ const CalendarModal = ({ onClose, onConnect }) => {
     );
 };
 
-// SMTP Modal Component (unchanged from original)
-const SMTPModal = ({ onClose, onSave }) => {
-    const [formData, setFormData] = useState({
+// SMTP Modal Component
+const SMTPModal = ({ onClose, onSave, initialData }) => {
+    const [formData, setFormData] = useState(initialData || {
         host: '',
         port: '587',
         username: '',
@@ -519,8 +542,8 @@ const SMTPModal = ({ onClose, onSave }) => {
             alert('❌ Please fill in all required fields');
             return;
         }
-        onSave();
-        alert('✅ SMTP configuration saved successfully!\n\nYou can now send automated emails to candidates.');
+        onSave(formData);
+        alert('✅ SMTP configuration updated! Don\'t forget to click "Save Settings" on the main panel.');
     };
 
     return (
