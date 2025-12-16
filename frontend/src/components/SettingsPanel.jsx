@@ -38,6 +38,7 @@ const SettingsPanel = () => {
 
     const [smtpConfigured, setSmtpConfigured] = useState(false);
     const [testingProvider, setTestingProvider] = useState(null);
+    const [currentUser, setCurrentUser] = useState(null); // Cache user object
 
     /* ---------------- LOAD SETTINGS ---------------- */
 
@@ -50,11 +51,13 @@ const SettingsPanel = () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
+            setCurrentUser(user); // Store user in state
+
             const { data, error } = await supabase
                 .from("settings")
                 .select("*")
                 .eq("user_id", user.id)
-                .maybeSingle(); // ✅ IMPORTANT FIX
+                .maybeSingle();
 
             if (error) {
                 console.error("Error loading settings:", error);
@@ -91,8 +94,13 @@ const SettingsPanel = () => {
         console.log('SAVE CLICKED');
 
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('Not authenticated');
+            // Use cached user instead of awaiting promise
+            const user = currentUser;
+
+            if (!user) {
+                console.error('No cached user found');
+                throw new Error('Not authenticated (No User Found)');
+            }
 
             const settingsData = {
                 user_id: user.id,
