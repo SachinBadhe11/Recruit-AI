@@ -47,19 +47,17 @@ const SettingsPanel = () => {
 
     const loadSettings = async () => {
         try {
-            const {
-                data: { user },
-            } = await supabase.auth.getUser();
+            const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
             const { data, error } = await supabase
                 .from("settings")
                 .select("*")
                 .eq("user_id", user.id)
-                .single();
+                .maybeSingle(); // ✅ IMPORTANT FIX
 
-            if (error && error.code !== "PGRST116") {
-                console.error("Load settings error:", error);
+            if (error) {
+                console.error("Error loading settings:", error);
                 return;
             }
 
@@ -67,9 +65,9 @@ const SettingsPanel = () => {
                 setActiveProvider(data.active_provider || "openai");
 
                 if (data.provider_config?.providers) {
-                    setProviders((prev) => ({
+                    setProviders(prev => ({
                         ...prev,
-                        ...data.provider_config.providers,
+                        ...data.provider_config.providers
                     }));
                 }
 
@@ -79,11 +77,12 @@ const SettingsPanel = () => {
                 }
             }
         } catch (err) {
-            console.error("Unexpected load error:", err);
+            console.error("Unexpected error loading settings:", err);
         } finally {
             setLoading(false);
         }
     };
+
 
     /* ---------------- SAVE SETTINGS (FIXED) ---------------- */
 
@@ -191,8 +190,8 @@ const SettingsPanel = () => {
                             key={provider}
                             onClick={() => setActiveProvider(provider)}
                             className={`px-4 py-2 rounded-xl font-semibold ${activeProvider === provider
-                                    ? "bg-primary-100 text-primary-700"
-                                    : "bg-surface-100"
+                                ? "bg-primary-100 text-primary-700"
+                                : "bg-surface-100"
                                 }`}
                         >
                             {provider}
