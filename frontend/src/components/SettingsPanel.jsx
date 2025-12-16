@@ -23,6 +23,7 @@ const SettingsPanel = () => {
         username: '',
         password: ''
     });
+    const [testingProvider, setTestingProvider] = useState(null);
 
     // Load settings from Supabase on mount
     useEffect(() => {
