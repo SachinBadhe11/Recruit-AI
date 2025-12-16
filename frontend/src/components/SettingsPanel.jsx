@@ -110,8 +110,7 @@ const SettingsPanel = ({ user }) => {
 
             const { data, error } = await supabase
                 .from("settings")
-                .upsert(settingsData, { onConflict: "user_id" })
-                .select();
+                .upsert(settingsData, { onConflict: "user_id" });
 
             if (error) throw error;
 
