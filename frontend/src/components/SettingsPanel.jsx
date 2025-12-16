@@ -491,12 +491,46 @@ const SettingsPanel = () => {
                     />
                 )}
             </AnimatePresence>
+
+            {/* Debug Section */}
+            <div className="mt-8 pt-8 border-t border-surface-200">
+                <button
+                    onClick={async () => {
+                        const { data: { user } } = await supabase.auth.getUser();
+                        console.log('--- DEBUG START ---');
+                        console.log('User:', user);
+
+                        if (user) {
+                            const { data: profile, error: profileError } = await supabase
+                                .from('profiles')
+                                .select('*')
+                                .eq('id', user.id);
+                            console.log('Profile Check:', { profile, error: profileError });
+
+                            const { data: settings, error: settingsError } = await supabase
+                                .from('settings')
+                                .select('*')
+                                .eq('user_id', user.id);
+                            console.log('Settings Check:', { settings, error: settingsError });
+
+                            alert(`DEBUG REPORT:\nUser ID: ${user.id}\nProfile Found: ${profile?.length > 0 ? 'YES' : 'NO'}\nProfile Error: ${profileError?.message || 'None'}\nSettings Found: ${settings?.length > 0 ? 'YES' : 'NO'}\nSettings Error: ${settingsError?.message || 'None'}`);
+                        } else {
+                            alert('DEBUG: No authenticated user found!');
+                        }
+                        console.log('--- DEBUG END ---');
+                    }}
+                    className="text-xs text-surface-400 hover:text-surface-600 underline"
+                >
+                    Run Database Diagnostics
+                </button>
+            </div>
         </>
     );
 };
 
 // Calendar Modal Component (unchanged from original)
 const CalendarModal = ({ onClose, onConnect }) => {
+    // ... rest of file unchanged
     const handleGoogleConnect = () => {
         setTimeout(() => {
             onConnect();
